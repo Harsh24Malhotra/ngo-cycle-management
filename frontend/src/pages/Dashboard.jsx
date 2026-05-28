@@ -1,125 +1,233 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import Navbar from '../components/Navbar';
+import { Bike, CheckCircle, AlertCircle, RefreshCw, PlusCircle, Loader2 } from 'lucide-react';
 import StatsCard from '../components/StatsCard';
 
 export default function Dashboard() {
-  const [formData, setFormData] = useState({
-    name: '',
-    frameNumber: '',
-    status: 'Available',
-    beneficiaryName: '',
-    beneficiaryPhone: ''
-  });
+  const [cycles, setCycles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  
+  const [cycleId, setCycleId] = useState('');
+  const [condition, setCondition] = useState('Good');
+  const [status, setStatus] = useState('Available');
+  
+  // New state tracking fields for direct assignment during registration
+  const [beneficiaryName, setBeneficiaryName] = useState('');
+  const [beneficiaryPhone, setBeneficiaryPhone] = useState('');
+  const [beneficiaryVillage, setBeneficiaryVillage] = useState('');
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleCreateCycle = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    
+  const fetchCycles = async () => {
     try {
-      // 1. Create the cycle entry on the live Render backend
-      const res = await axios.post('https://naricycle-backend.onrender.com/api/cycles', {
-        name: formData.name,
-        frameNumber: formData.frameNumber,
-        status: formData.status
+      const token = localStorage.getItem('token');
+      const res = await axios.get('https://naricycle-backend.onrender.com/api/cycles', {
+        headers: { Authorization: `Bearer ${token}` }
       });
-
-      // 2. If registration requires immediate assignment
-      if (formData.status === 'Assigned') {
-        await axios.put(`https://naricycle-backend.onrender.com/api/cycles/${res.data._id}/assign`, {
-          name: formData.beneficiaryName,
-          phone: formData.beneficiaryPhone
-        });
-      }
-
-      setSuccess("✨ Cycle registered successfully into live inventory cloud!");
-      setFormData({ name: '', frameNumber: '', status: 'Available', beneficiaryName: '', beneficiaryPhone: '' });
+      setCycles(res.data);
     } catch (err) {
-      setError(err.response?.data?.message || 'Error processing cycle server request');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
+  useEffect(() => { fetchCycles(); }, []);
+
+  const handleCreateCycle = async (e) => {
+    e.preventDefault();
+    setFormLoading(true);
+    setError('');
+
+    // Construct the payload based on selected status
+    const initialPayload = {
+      cycleId,
+      condition,
+      status
+    };
+
+    // If status is Assigned, append the holder profile data directly
+    if (status === 'Assigned') {
+      initialPayload.name = beneficiaryName;
+      initialPayload.phone = beneficiaryPhone;
+      initialPayload.village = beneficiaryVillage || 'Main Center';
+      initialPayload.assignedDate = new Date().toISOString().split('T')[0];
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      
+      // 1. Create the asset unit configuration
+      const res = await axios.post('https://naricycle-backend.onrender.com/api/cycles/create', 
+        { cycleId, condition, status: status === 'Assigned' ? 'Available' : status },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // 2. If registration requires immediate assignment, route details to allocation endpoint
+      if (status === 'Assigned') {
+        await axios.put(`https://naricycle-backend.onrender.com/api/cycles/${res.data._id}/assign`,
+          { name: beneficiaryName, phone: beneficiaryPhone, village: beneficiaryVillage || 'Main Center', assignedDate: new Date().toISOString().split('T')[0] },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+
+      // Clear configuration parameters
+      setCycleId('');
+      setBeneficiaryName('');
+      setBeneficiaryPhone('');
+      setBeneficiaryVillage('');
+      fetchCycles();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error processing asset registration');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const total = cycles.length;
+  const assigned = cycles.filter(c => c.status === 'Assigned').length;
+  const available = cycles.filter(c => c.status === 'Available').length;
+  const repair = cycles.filter(c => c.status === 'Under Repair').length;
+
+  if (loading) {
+    return (
+      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 1. Top Navigation Bar Component */}
-      <Navbar />
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-800">Operational Overview</h1>
+        <p className="text-slate-500 text-sm">Realtime updates on cycle distribution metrics</p>
+      </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        {/* 2. Top Stats Section Banner */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <StatsCard title="Total Fleet" value="--" icon="🚲" color="bg-blue-500" />
-          <StatsCard title="Assigned Cycles" value="--" icon="🤝" color="bg-green-500" />
-          <StatsCard title="In Maintenance" value="--" icon="🛠️" color="bg-amber-500" />
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+        <StatsCard title="Total Inventory" value={total} icon={Bike} colorClass="bg-blue-50 text-blue-600" />
+        <StatsCard title="Assigned Fleet" value={assigned} icon={CheckCircle} colorClass="bg-emerald-50 text-emerald-600" />
+        <StatsCard title="Available Fleet" value={available} icon={RefreshCw} colorClass="bg-indigo-50 text-indigo-700" />
+        <StatsCard title="In Maintenance" value={repair} icon={AlertCircle} colorClass="bg-amber-50 text-amber-600" />
+      </div>
 
-        {/* 3. Core Interactive Form Split Panel */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">Register New Cycle Asset</h2>
-              <p className="text-sm text-gray-500">Log fresh bicycle distribution inventory data directly into live cloud arrays.</p>
-            </div>
-
-            {error && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100">{error}</div>}
-            {success && <div className="p-3 bg-green-50 text-green-600 text-sm rounded-xl border border-green-100">{success}</div>}
-
-            <form onSubmit={handleCreateCycle} className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Cycle Brand / Model</label>
-                  <input type="text" name="name" value={formData.name} onChange={handleChange} required placeholder="e.g., Hero Jet, Avon" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Chassis / Frame ID Number</label>
-                  <input type="text" name="frameNumber" value={formData.frameNumber} onChange={handleChange} required placeholder="e.g., NC-99234X" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Initial Operational Deployment Status</label>
-                <select name="status" value={formData.status} onChange={handleChange} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm text-gray-700">
-                  <option value="Available">🟢 Available for Allocation</option>
-                  <option value="Assigned">🤝 Assign Instantly to Beneficiary</option>
-                  <option value="Maintenance">🛠️ Grounded / Under Maintenance</option>
-                </select>
-              </div>
-
-              {formData.status === 'Assigned' && (
-                <div className="p-5 bg-emerald-50/50 rounded-2xl border border-emerald-100 space-y-4 animate-fadeIn">
-                  <h3 className="text-sm font-bold text-emerald-900 flex items-center gap-2">👤 Beneficiary Allocation Profile Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-emerald-800 mb-1">Full Name</label>
-                      <input type="text" name="beneficiaryName" value={formData.beneficiaryName} onChange={handleChange} required placeholder="Recipient's name" className="w-full p-2.5 bg-white border border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-emerald-800 mb-1">Contact / Phone Number</label>
-                      <input type="text" name="beneficiaryPhone" value={formData.beneficiaryPhone} onChange={handleChange} required placeholder="10-digit mobile line" className="w-full p-2.5 bg-white border border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <button type="submit" className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-sm transition-all transform active:scale-[0.98] text-sm mt-2">
-                🚀 Commit Cycle Asset to Live Database
-              </button>
-            </form>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-fit">
+          <div className="flex items-center space-x-2 text-slate-800 font-bold text-lg mb-4 border-b border-slate-100 pb-3">
+            <PlusCircle className="h-5 w-5 text-emerald-600" />
+            <h2>Register New Asset</h2>
           </div>
 
-          {/* Quick Informational Tips Sidebar card panel */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 h-fit space-y-4">
-            <h3 className="font-bold text-gray-900 text-base">NGO Cloud Infrastructure Logs</h3>
-            <div className="text-xs text-gray-600 space-y-3">
-              <p className="p-2 bg-gray-50 rounded-lg">🟢 <strong>Status Check:</strong> Connected directly to live Render node environments cluster.</p>
-              <p className="p-2 bg-gray-50 rounded-lg">📦 <strong>Data Sync:</strong> Operations instantly update globally verified inventory views.</p>
+          {error && <div className="mb-4 text-xs bg-rose-50 text-rose-600 p-3 rounded-lg font-medium">{error}</div>}
+
+          <form onSubmit={handleCreateCycle} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Asset Cycle ID</label>
+              <input 
+                type="text" 
+                value={cycleId} 
+                onChange={(e) => setCycleId(e.target.value)}
+                placeholder="e.g., CYCLE-104"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 transition" 
+                required 
+              />
             </div>
+            
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Initial Status State</label>
+              <select 
+                value={status} 
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 transition"
+              >
+                <option value="Available">Available (In Storage)</option>
+                <option value="Assigned">Assigned (Issue directly to person)</option>
+                <option value="Under Repair">Under Repair</option>
+              </select>
+            </div>
+
+            {status === 'Assigned' && (
+              <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-3 animate-fadeIn">
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Beneficiary Profile Info</p>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Full Name</label>
+                  <input 
+                    type="text" 
+                    value={beneficiaryName} 
+                    onChange={(e) => setBeneficiaryName(e.target.value)}
+                    placeholder="Enter full name"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-500" 
+                    required={status === 'Assigned'}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Phone Number</label>
+                  <input 
+                    type="text" 
+                    value={beneficiaryPhone} 
+                    onChange={(e) => setBeneficiaryPhone(e.target.value)}
+                    placeholder="Enter phone number"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-500" 
+                    required={status === 'Assigned'}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Village Location</label>
+                  <input 
+                    type="text" 
+                    value={beneficiaryVillage} 
+                    onChange={(e) => setBeneficiaryVillage(e.target.value)}
+                    placeholder="Enter village name"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-500" 
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Physical Condition</label>
+              <select 
+                value={condition} 
+                onChange={(e) => setCondition(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 transition"
+              >
+                <option value="Good">Good Condition</option>
+                <option value="Damaged">Damaged Asset</option>
+                <option value="Needs Service">Needs Service</option>
+              </select>
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={formLoading}
+              className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold tracking-wide py-2.5 rounded-xl transition disabled:opacity-50"
+            >
+              {formLoading ? 'Processing Profile Registration...' : 'Commit Asset Unit'}
+            </button>
+          </form>
+        </div>
+
+        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3">Latest Operations Logs</h2>
+          <div className="space-y-4 max-h-[460px] overflow-y-auto pr-2">
+            {cycles.map((c) => (
+              <div key={c._id} className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <div>
+                  <p className="font-bold text-slate-700">{c.cycleId}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">UUID Reference: {c.uuid.substring(0,8)}...</p>
+                </div>
+                <div className="text-right">
+                  <span className={`inline-block px-2.5 py-1 text-xs font-bold rounded-full ${
+                    c.status === 'Assigned' ? 'bg-emerald-50 text-emerald-700' :
+                    c.status === 'Available' ? 'bg-indigo-50 text-indigo-700' : 'bg-amber-50 text-amber-700'
+                  }`}>
+                    {c.status}
+                  </span>
+                  <p className="text-xs font-medium text-slate-500 mt-1">{c.currentBeneficiary?.name ? `${c.currentBeneficiary.name} (${c.currentBeneficiary.phone})` : 'Unassigned Fleet'}</p>
+                </div>
+              </div>
+            ))}
+            {cycles.length === 0 && <p className="text-slate-400 text-sm text-center py-8">No inventory tracking entries present.</p>}
           </div>
         </div>
       </div>
