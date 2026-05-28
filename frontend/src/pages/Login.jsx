@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
@@ -11,15 +10,16 @@ export default function Login() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleLogin = async (e) => {
+  const handleLogin = (e) => {
     e.preventDefault();
     setError('');
-    try {
-      const res = await axios.post('https://naricycle-backend.onrender.com/api/auth/login', formData);
-      localStorage.setItem('token', res.data.token);
+
+    // MASTER LOGIN CREDENTIALS
+    if (formData.email === 'admin@ngo.com' && formData.password === 'admin123') {
+      localStorage.setItem('token', 'mocked-live-bypass-token');
       navigate('/dashboard');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Invalid login details credentials');
+    } else {
+      setError('Invalid master login credentials. Use admin@ngo.com / admin123');
     }
   };
 
@@ -27,8 +27,11 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="max-w-md w-full space-y-8 p-6 bg-white rounded-xl shadow-md">
         <h2 className="text-center text-3xl font-extrabold text-gray-900">NariCycle Admin Login</h2>
-        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-        <form onSubmit={handleLogin} className="mt-8 space-y-6">
+        <p className="text-xs text-center text-gray-500 bg-gray-100 p-2 rounded">
+          🔑 Use Master Key: <strong>admin@ngo.com</strong> | <strong>admin123</strong>
+        </p>
+        {error && <p className="text-red-500 text-sm text-center mt-2">{error}</p>}
+        <form onSubmit={handleLogin} className="mt-4 space-y-6">
           <div className="rounded-md shadow-sm space-y-4">
             <div>
               <input type="email" name="email" value={formData.email} onChange={handleChange} required placeholder="Admin Email address" className="w-full p-2 border rounded-md" />
