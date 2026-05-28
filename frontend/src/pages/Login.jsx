@@ -14,12 +14,12 @@ export default function Login() {
     e.preventDefault();
     setError('');
 
-    // MASTER LOGIN CREDENTIALS
+    // PURE FRONTEND BYPASS - NO BACKEND REQUESTS AT ALL
     if (formData.email === 'admin@ngo.com' && formData.password === 'admin123') {
       localStorage.setItem('token', 'mocked-live-bypass-token');
       navigate('/dashboard');
     } else {
-      setError('Invalid master login credentials. Use admin@ngo.com / admin123');
+      setError('Please use the exact key: admin@ngo.com and admin123');
     }
   };
 
@@ -27,9 +27,9 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="max-w-md w-full space-y-8 p-6 bg-white rounded-xl shadow-md">
         <h2 className="text-center text-3xl font-extrabold text-gray-900">NariCycle Admin Login</h2>
-        <p className="text-xs text-center text-gray-500 bg-gray-100 p-2 rounded">
-          🔑 Use Master Key: <strong>admin@ngo.com</strong> | <strong>admin123</strong>
-        </p>
+        <div className="text-xs text-center text-gray-600 bg-blue-50 p-3 rounded-lg border border-blue-200">
+          🔑 <strong>Master Key:</strong> admin@ngo.com | <strong>Password:</strong> admin123
+        </div>
         {error && <p className="text-red-500 text-sm text-center mt-2">{error}</p>}
         <form onSubmit={handleLogin} className="mt-4 space-y-6">
           <div className="rounded-md shadow-sm space-y-4">
