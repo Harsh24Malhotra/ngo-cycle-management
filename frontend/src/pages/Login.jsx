@@ -1,85 +1,43 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Bike, Lock, User } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/admin/login', { username, password });
+      const res = await axios.post('https://naricycle-backend.onrender.com/api/auth/login', formData);
       localStorage.setItem('token', res.data.token);
-      navigate('/');
+      navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid administrative credentials');
-    } finally {
-      setLoading(false);
+      setError(err.response?.data?.message || 'Invalid login details credentials');
     }
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
-      <div className="bg-white max-w-md w-full rounded-2xl shadow-sm border border-slate-100 p-8">
-        <div className="text-center mb-8">
-          <div className="inline-flex p-3 bg-emerald-50 text-emerald-600 rounded-full mb-3">
-            <Bike className="h-8 w-8" />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800">Admin Control Gateway</h2>
-          <p className="text-slate-500 text-sm mt-1">Authorized NGO administrative access only</p>
-        </div>
-
-        {error && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl text-sm mb-4 font-medium">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleLogin} className="space-y-5">
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Username</label>
-            <div className="relative">
-              <User className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
-              <input 
-                type="text" 
-                value={username} 
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition outline-none"
-                placeholder="Enter username" 
-                required 
-              />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="max-w-md w-full space-y-8 p-6 bg-white rounded-xl shadow-md">
+        <h2 className="text-center text-3xl font-extrabold text-gray-900">NariCycle Admin Login</h2>
+        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+        <form onSubmit={handleLogin} className="mt-8 space-y-6">
+          <div className="rounded-md shadow-sm space-y-4">
+            <div>
+              <input type="email" name="email" value={formData.email} onChange={handleChange} required placeholder="Admin Email address" className="w-full p-2 border rounded-md" />
+            </div>
+            <div>
+              <input type="password" name="password" value={formData.password} onChange={handleChange} required placeholder="Password" className="w-full p-2 border rounded-md" />
             </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
-              <input 
-                type="password" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition outline-none"
-                placeholder="••••••••" 
-                required 
-              />
-            </div>
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-semibold tracking-wide transition shadow-sm disabled:opacity-50"
-          >
-            {loading ? 'Authenticating...' : 'Access Dashboard'}
-          </button>
+          <button type="submit" className="w-full py-2 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700">Sign In</button>
         </form>
       </div>
     </div>
