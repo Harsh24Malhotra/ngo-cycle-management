@@ -6,7 +6,7 @@ export default function QrModal({ cycle, onClose }) {
   const [qrUrl, setQrUrl] = useState('');
 
   // We point the link to your local frontend public route
-  const publicViewUrl = `http://localhost:5173/cycle/${cycle.uuid}`;
+  const publicViewUrl = `https://ngo-cycle-management.vercel.app/cycle/${cycle.uuid}`;
 
   useEffect(() => {
     if (cycle?.uuid) {
