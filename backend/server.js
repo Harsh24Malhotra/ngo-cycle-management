@@ -9,19 +9,19 @@ import Admin from './models/Admin.js';
 dotenv.config();
 
 const fallbackFrontendUrl = 'https://ngo-cycle-management.vercel.app';
-const configuredFrontendUrl = process.env.FRONTEND_URL || fallbackFrontendUrl;
+const configuredFrontendUrl = (process.env.FRONTEND_URL || fallbackFrontendUrl).replace(/\/$/, ''); // Remove trailing slashes
 process.env.FRONTEND_URL = configuredFrontendUrl;
 
-const configuredAllowedOrigins = (process.env.ALLOWED_ORIGINS || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+// const configuredAllowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+//   .split(',')
+//   .map((origin) => origin.trim())
+//   .filter(Boolean);
 
 const allowedOrigins = new Set([
   configuredFrontendUrl,
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-  ...configuredAllowedOrigins,
+  // ...configuredAllowedOrigins,
 ]);
 
 const corsOptions = {
